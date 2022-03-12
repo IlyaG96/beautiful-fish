@@ -3,7 +3,6 @@ from environs import Env
 
 
 def fetch_products(elastic_token):
-    import requests
 
     headers = {
         'Authorization': f'Bearer {elastic_token}',
@@ -27,33 +26,56 @@ def get_client_token(client_secret, client_id):
     return response.json().get('access_token')
 
 
-def add_product_to_inventory(product_id, elastic_token):
+def add_product_to_cart(elastic_token, cart_id, product_id):
     headers = {
         'Authorization': f'Bearer {elastic_token}',
         'Content-Type': 'application/json',
     }
 
-    data = '{"data": {"quantity": 1000}}'
+    json_data = {
+        'data': {
+            'id': product_id,
+            'type': 'cart_item',
+            'quantity': 1,
+        },
+    }
 
-    response = requests.post(f'https://api.moltin.com/v2/inventories/{product_id}', headers=headers, data=data)
+    response = requests.post(f'https://api.moltin.com/v2/carts/{cart_id}/items', headers=headers, json=json_data)
+    response.raise_for_status()
+
+    print(response.json())
+
+    return response.json()
 
 
-def get_inventory(elastic_token):
+def create_cart(elastic_token, tg_id):
+    headers = {
+        'Authorization': f'Bearer {elastic_token}',
+        'Content-Type': 'application/json',
+    }
+
+    json_data = {
+        'data': {
+            'name': tg_id,
+            'description': f'cart of user {tg_id}',
+        }
+    }
+
+    response = requests.post('https://api.moltin.com/v2/carts', headers=headers, json=json_data)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def get_cart(elastic_token, cart_id):
     headers = {
         'Authorization': f'Bearer {elastic_token}',
     }
 
-    response = requests.get('https://api.moltin.com/v2/inventories', headers=headers)
+    response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}', headers=headers)
     print(response.json())
 
-
-def get_product_stock(elastic_token, product_id):
-    headers = {
-        'Authorization': f'Bearer {elastic_token}',
-    }
-
-    response = requests.get(f'https://api.moltin.com/v2/inventories/b8b38976-d669-49d9-9944-adae21b16a8a', headers=headers)
-    print(response.json())
+    return response.json()
 
 
 def create_product(elastic_token):
@@ -95,6 +117,11 @@ def main():
     client_secret = env.str('ELASTIC_CLIENT_SECRET')
     elastic_token = get_client_token(client_secret, client_id)
     fetch_products(elastic_token)
+    #cart_id = create_cart(elastic_token, tg_id='123').get('data').get('id')
+    current_cart = 'f2f86d7d-6a64-420e-b028-790fb39457e3'
+    get_cart(elastic_token, cart_id=current_cart)
+    add_product_to_cart(elastic_token, cart_id=current_cart, product_id='f200aec5-511f-409a-960d-be9195869436')
+    get_cart(elastic_token, cart_id=current_cart)
 
 
 if __name__ == '__main__':
