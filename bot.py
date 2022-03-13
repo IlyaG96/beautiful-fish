@@ -7,6 +7,7 @@ from enum import Enum
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from elastic_api import get_client_token, fetch_products
 
 
 class BotStates(Enum):
@@ -15,36 +16,23 @@ class BotStates(Enum):
     USER_CHOSE_ACTION = 3
 
 
-"""def start(update, context):
-    text = "Привет"
-    keyboard = [['Начать игру!']]
-
-    update.message.reply_text(
-        text,
-        reply_markup=ReplyKeyboardMarkup(
-            keyboard,
-            resize_keyboard=True,
-        )
-    )
-
-    return BotStates.ASK_QUESTION"""
-
-
 def start(update, context):
-    keyboard = [[InlineKeyboardButton("Option 1", callback_data='1'),
-                 InlineKeyboardButton("Option 2", callback_data='2')],
+    client_id = context.bot_data['client_id']
+    client_secret = context.bot_data['client_secret']
+    elastic_token = get_client_token(client_secret, client_id)
+    products = fetch_products(elastic_token)
 
-                [InlineKeyboardButton("Option 3", callback_data='3')]]
-
+    keyboard = [[
+        InlineKeyboardButton(product.get('name'), callback_data=num) for num, product in enumerate(products)
+    ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    update.message.reply_text('Please choose:', reply_markup=reply_markup)
+    update.message.reply_text('Мы рыбов продоем!', reply_markup=reply_markup)
 
     return BotStates.ASK_QUESTION
 
 
 def cancel(update, context):
-
     text = 'Пока'
 
     update.message.reply_text(
@@ -69,6 +57,9 @@ def main():
     redis_host = env.str('REDIS_HOST')
     redis_port = env.str('REDIS_PORT')
     redis_password = env.str('REDIS_PASSWORD')
+    client_id = env.str('ELASTIC_CLIENT_ID')
+    client_secret = env.str('ELASTIC_CLIENT_SECRET')
+
     updater = Updater(telegram_token)
 
     redis_base = redis.Redis(host=redis_host,
@@ -78,6 +69,8 @@ def main():
 
     dispatcher = updater.dispatcher
     dispatcher.bot_data['redis_base'] = redis_base
+    dispatcher.bot_data['client_id'] = client_id
+    dispatcher.bot_data['client_secret'] = client_secret
 
     start_quiz = ConversationHandler(
         entry_points=[

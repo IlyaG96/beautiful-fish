@@ -9,7 +9,11 @@ def fetch_products(elastic_token):
     }
 
     response = requests.get('https://api.moltin.com/v2/products', headers=headers)
-    print(response.json())
+    response.raise_for_status()
+
+    products = response.json().get('data')
+
+    return products
 
 
 def get_client_token(client_secret, client_id):
@@ -118,10 +122,10 @@ def main():
     elastic_token = get_client_token(client_secret, client_id)
     fetch_products(elastic_token)
     #cart_id = create_cart(elastic_token, tg_id='123').get('data').get('id')
-    current_cart = 'f2f86d7d-6a64-420e-b028-790fb39457e3'
-    get_cart(elastic_token, cart_id=current_cart)
-    add_product_to_cart(elastic_token, cart_id=current_cart, product_id='f200aec5-511f-409a-960d-be9195869436')
-    get_cart(elastic_token, cart_id=current_cart)
+    #current_cart = 'f2f86d7d-6a64-420e-b028-790fb39457e3'
+    #get_cart(elastic_token, cart_id=current_cart)
+    #add_product_to_cart(elastic_token, cart_id=current_cart, product_id='f200aec5-511f-409a-960d-be9195869436')
+    #get_cart(elastic_token, cart_id=current_cart)
 
 
 if __name__ == '__main__':
