@@ -23,7 +23,7 @@ def start(update, context):
     products = fetch_products(elastic_token)
 
     keyboard = [[
-        InlineKeyboardButton(product.get('name'), callback_data=num) for num, product in enumerate(products)
+        InlineKeyboardButton(product.get('name'), callback_data=product.get('id')) for product in products
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
