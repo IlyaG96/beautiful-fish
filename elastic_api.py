@@ -16,6 +16,20 @@ def fetch_products(elastic_token):
     return products
 
 
+def get_product_info(elastic_token, product_id):
+
+    headers = {
+        'Authorization': f'Bearer {elastic_token}',
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/products/{product_id}', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
+
+
 def get_client_token(client_secret, client_id):
 
     data = {
