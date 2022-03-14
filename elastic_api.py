@@ -40,10 +40,6 @@ def get_image_link(elastic_token, product_image_id):
     return image_link
 
 
-
-
-
-
 def get_client_token(client_secret, client_id):
 
     data = {
@@ -58,7 +54,8 @@ def get_client_token(client_secret, client_id):
     return response.json().get('access_token')
 
 
-def add_product_to_cart(elastic_token, cart_id, product_id):
+def add_product_to_cart(elastic_token, cart_id, product_id, quantity):
+    print("adding")
     headers = {
         'Authorization': f'Bearer {elastic_token}',
         'Content-Type': 'application/json',
@@ -68,7 +65,7 @@ def add_product_to_cart(elastic_token, cart_id, product_id):
         'data': {
             'id': product_id,
             'type': 'cart_item',
-            'quantity': 1,
+            'quantity': quantity,
         },
     }
 
@@ -105,7 +102,6 @@ def get_cart(elastic_token, cart_id):
     }
 
     response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}', headers=headers)
-    print(response.json())
 
     return response.json()
 
