@@ -7,19 +7,18 @@ from enum import Enum
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from elastic_api import get_client_token, fetch_products, get_product_info
+from elastic_api import get_client_token, fetch_products, get_product_info, get_image_link
 from textwrap import dedent
 
 
 class BotStates(Enum):
     START = 1
     HANDLE_MENU = 2
-    USER_CHOSE_ACTION = 3
+    HANDLE_DESCRIPTION = 3
 
 
 def format_product_description(product_description):
     product_description = product_description.get('data')
-    print(product_description)
 
     formatted_product_description = dedent(
         f'''
@@ -76,6 +75,8 @@ def handle_menu(update, context):
     callback_query = update.callback_query
     product_id = callback_query.data
     product_description = get_product_info(elastic_token, product_id)
+    product_image_id = product_description['data']['relationships']['main_image']['data']['id']
+    image_link = get_image_link(elastic_token, product_image_id)
     formatted_product_description = format_product_description(product_description)
 
     keyboard = [[
@@ -83,10 +84,16 @@ def handle_menu(update, context):
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    bot.edit_message_text(text=formatted_product_description,
-                          chat_id=callback_query.message.chat_id,
-                          message_id=callback_query.message.message_id,
-                          reply_markup=reply_markup)
+    bot.send_photo(
+        chat_id=callback_query.message.chat_id,
+        photo=image_link,
+        caption=formatted_product_description
+    )
+
+    bot.delete_message(
+        chat_id=callback_query.message.chat_id,
+        message_id=callback_query.message.message_id,
+    )
 
     return BotStates.HANDLE_MENU
 

@@ -28,6 +28,20 @@ def get_product_info(elastic_token, product_id):
     return response.json()
 
 
+def get_image_link(elastic_token, product_image_id):
+    headers = {
+        f'Authorization': f'Bearer {elastic_token}',
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/files/{product_image_id}', headers=headers)
+    response.raise_for_status()
+    image_link = response.json()['data']['link']['href']
+
+    return image_link
+
+
+
+
 
 
 def get_client_token(client_secret, client_id):
