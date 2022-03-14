@@ -5,7 +5,7 @@ from telegram.ext import (CommandHandler, ConversationHandler,
                           Filters, MessageHandler, Updater)
 from enum import Enum
 from telegram.ext import Filters, Updater
-from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
+from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, CallbackContext
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from elastic_api import get_client_token, fetch_products, get_product_info, get_image_link
 from textwrap import dedent
@@ -18,7 +18,7 @@ class BotStates(Enum):
 
 
 def format_product_description(product_description):
-    product_description = product_description.get('data')
+    product_description = product_description['data']
 
     formatted_product_description = dedent(
         f'''
@@ -32,7 +32,23 @@ def format_product_description(product_description):
     return formatted_product_description
 
 
-def start(update, context):
+def cancel(update, context):
+    text = 'Пока'
+
+    update.message.reply_text(
+        text,
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return ConversationHandler.END
+
+
+def handle_menu(update, context):
+    print('123')
+
+    if not update.callback_query:
+        user_id = update.message.chat_id
+    else:
+        user_id = update.callback_query.message.chat_id
     client_id = context.bot_data['client_id']
     client_secret = context.bot_data['client_secret']
     elastic_token = get_client_token(client_secret, client_id)
@@ -47,25 +63,14 @@ def start(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     bot.send_message(text='Мы рыбов продоем!',
-                     chat_id=update.message.chat_id,
+                     chat_id=user_id,
                      reply_markup=reply_markup)
 
-    return BotStates.HANDLE_MENU
+    return BotStates.HANDLE_DESCRIPTION
 
 
-def cancel(update, context):
-    text = 'Пока'
+def handle_description(update, context):
 
-    update.message.reply_text(
-        text,
-        reply_markup=ReplyKeyboardRemove()
-    )
-    return ConversationHandler.END
-
-
-def handle_menu(update, context):
-
-    products = context.bot_data['products']
     client_id = context.bot_data['client_id']
     client_secret = context.bot_data['client_secret']
     bot = context.bot
@@ -80,14 +85,19 @@ def handle_menu(update, context):
     formatted_product_description = format_product_description(product_description)
 
     keyboard = [[
-        InlineKeyboardButton(product.get('name'), callback_data=product.get('id')) for product in products
+        InlineKeyboardButton('Назад', callback_data='Назад'),
+        InlineKeyboardButton('1 кг', callback_data='1'),
+        InlineKeyboardButton('5 кг', callback_data='1'),
+        InlineKeyboardButton('10 кг', callback_data='1')
     ]]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     bot.send_photo(
         chat_id=callback_query.message.chat_id,
         photo=image_link,
-        caption=formatted_product_description
+        caption=formatted_product_description,
+        reply_markup=reply_markup
     )
 
     bot.delete_message(
@@ -95,7 +105,7 @@ def handle_menu(update, context):
         message_id=callback_query.message.message_id,
     )
 
-    return BotStates.HANDLE_MENU
+    return BotStates.HANDLE_DESCRIPTION
 
 
 def main():
@@ -120,17 +130,18 @@ def main():
     dispatcher.bot_data['client_id'] = client_id
     dispatcher.bot_data['client_secret'] = client_secret
 
-    start_quiz = ConversationHandler(
+    fish_shop = ConversationHandler(
         entry_points=[
-            CommandHandler('start', start),
+            CommandHandler('start', handle_menu),
             CommandHandler('cancel', cancel)
         ],
         states={
-            BotStates.START: [
-                CallbackQueryHandler(start)
-            ],
             BotStates.HANDLE_MENU: [
                 CallbackQueryHandler(handle_menu),
+            ],
+            BotStates.HANDLE_DESCRIPTION: [
+                CallbackQueryHandler(handle_menu, pattern='^Назад$'),
+                CallbackQueryHandler(handle_description),
             ],
 
         },
@@ -141,7 +152,7 @@ def main():
             CommandHandler('cancel', cancel)],
     )
 
-    dispatcher.add_handler(start_quiz)
+    dispatcher.add_handler(fish_shop)
     updater.start_polling()
     updater.idle()
 
