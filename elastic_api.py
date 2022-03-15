@@ -99,11 +99,21 @@ def get_cart(elastic_token, cart_id):
         'Authorization': f'Bearer {elastic_token}',
     }
 
-    response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}', headers=headers)
+    response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}/items', headers=headers)
     response.raise_for_status()
 
     return response.json()
 
+
+def get_cart_total_price(elastic_token, cart_id):
+    headers = {
+        'Authorization': f'Bearer {elastic_token}',
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
 
 def main():
 
