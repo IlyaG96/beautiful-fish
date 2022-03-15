@@ -114,21 +114,3 @@ def get_cart_total_price(elastic_token, cart_id):
     response.raise_for_status()
 
     return response.json()
-
-def main():
-
-    env = Env()
-    env.read_env()
-    client_id = env.str('ELASTIC_CLIENT_ID')
-    client_secret = env.str('ELASTIC_CLIENT_SECRET')
-    elastic_token = get_client_token(client_secret, client_id)
-    fetch_products(elastic_token)
-    #cart_id = create_cart(elastic_token, tg_id='123').get('data').get('id')
-    #current_cart = 'f2f86d7d-6a64-420e-b028-790fb39457e3'
-    #get_cart(elastic_token, cart_id=current_cart)
-    #add_product_to_cart(elastic_token, cart_id=current_cart, product_id='f200aec5-511f-409a-960d-be9195869436')
-    #get_cart(elastic_token, cart_id=current_cart)
-
-
-if __name__ == '__main__':
-    main()
