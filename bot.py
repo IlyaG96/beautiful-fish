@@ -31,6 +31,9 @@ def format_product_description(product_description):
 
     return formatted_product_description
 
+def format_basket(basket_content):
+    pass
+
 
 def cancel(update, context):
     text = 'Пока'
@@ -108,7 +111,6 @@ def handle_description(update, context):
 
 
 def update_basket(update, context):
-    print("here!!")
 
     client_id = context.bot_data['client_id']
     client_secret = context.bot_data['client_secret']
@@ -120,19 +122,38 @@ def update_basket(update, context):
     if not cart_id:
         cart_id = create_cart(elastic_token, user_id)['data']['id']
         context.bot_data['cart_id'] = cart_id
-        print(cart_id)
 
     callback_query = update.callback_query
     quantity = int(callback_query.data)
-    print(quantity)
 
     add_product_to_cart(elastic_token, cart_id, product_id, quantity)
+    get_cart(elastic_token, cart_id)
 
     return BotStates.HANDLE_DESCRIPTION
 
 
-def handle_basket():
-    pass
+def handle_basket(update, context):
+
+    client_id = context.bot_data['client_id']
+    client_secret = context.bot_data['client_secret']
+    products = context.bot_data['products']
+    elastic_token = get_client_token(client_secret, client_id)
+    cart_id = context.bot_data.get('cart_id')
+    callback_query = update.callback_query
+    bot = context.bot
+    cart = get_cart(elastic_token, cart_id)
+
+    keyboard = [
+        [InlineKeyboardButton(product.get('name'), callback_data=product.get('id')) for product in products],
+        [InlineKeyboardButton('Корзина', callback_data='Корзина')]]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    bot.send_message(
+        text=cart,
+        chat_id=callback_query.message.chat_id,
+        reply_markup=reply_markup,
+    )
 
 
 def main():
