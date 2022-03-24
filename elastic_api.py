@@ -1,5 +1,4 @@
 import requests
-from environs import Env
 
 
 def fetch_products(elastic_token):
@@ -75,19 +74,29 @@ def add_product_to_cart(elastic_token, cart_id, product_id, quantity):
     return response.json()
 
 
+def remove_product_from_cart(elastic_token, cart_id, product_id):
+
+    headers = {
+        'Authorization': f'Bearer {elastic_token}',
+        'Content-Type': 'application/json',
+    }
+    response = requests.delete(f'https://api.moltin.com/v2/carts/{cart_id}/items/{product_id}', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
 def create_cart(elastic_token, tg_id):
     headers = {
         'Authorization': f'Bearer {elastic_token}',
         'Content-Type': 'application/json',
     }
-
     json_data = {
         'data': {
             'name': tg_id,
             'description': f'cart of user {tg_id}',
         }
     }
-
     response = requests.post('https://api.moltin.com/v2/carts', headers=headers, json=json_data)
     response.raise_for_status()
 

@@ -6,10 +6,17 @@ from enum import Enum
 from telegram.ext import Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from elastic_api import get_client_token, fetch_products, get_product_info, \
-    get_image_link, get_cart, add_product_to_cart, create_cart, get_cart_total_price
+from elastic_api import (get_client_token,
+                         fetch_products,
+                         get_product_info,
+                         get_image_link,
+                         get_cart,
+                         add_product_to_cart,
+                         create_cart,
+                         get_cart_total_price,
+                         remove_product_from_cart)
+
 from textwrap import dedent
-from pprint import pprint
 
 
 class BotStates(Enum):
@@ -36,7 +43,7 @@ def format_product_description(product_description):
 
 def format_cart(cart_items, elastic_token, total_price):
     cart = cart_items['data']
-    formatted_cart = ""
+    formatted_cart = ''
     for item in cart:
         product = item['name']
         quantity = item['quantity']
@@ -84,13 +91,13 @@ def handle_menu(update, context):
     else:
         user_id = update.callback_query.message.chat_id
 
-    cart_id = redis_base.hget(user_id, 'question_num')
+    cart_id = redis_base.hget(user_id, 'cart')
     if not cart_id:
-        cart_id = create_cart(elastic_token, user_id)['data']['id']
+        cart_id = create_cart(elastic_token, str(user_id))['data']['id']
         redis_base.hset(user_id, 'cart', cart_id)
 
-    context.bot_data['user_id'] = user_id
-    context.bot_data['cart_id'] = cart_id
+    context.user_data['user_id'] = user_id
+    context.user_data['cart_id'] = cart_id
 
     keyboard = [
         [InlineKeyboardButton(product.get('name'), callback_data=product.get('id')) for product in products],
@@ -113,7 +120,7 @@ def handle_description(update, context):
 
     callback_query = update.callback_query
     product_id = callback_query.data
-    context.bot_data['product_id'] = product_id
+    context.user_data['product_id'] = product_id
 
     product_description = get_product_info(elastic_token, product_id)
     product_image_id = product_description['data']['relationships']['main_image']['data']['id']
@@ -149,8 +156,8 @@ def update_cart(update, context):
     client_id = context.bot_data['client_id']
     client_secret = context.bot_data['client_secret']
     elastic_token = get_client_token(client_secret, client_id)
-    cart_id = context.bot_data['cart_id']
-    product_id = context.bot_data['product_id']
+    cart_id = context.user_data['cart_id']
+    product_id = context.user_data['product_id']
 
     callback_query = update.callback_query
     quantity = int(callback_query.data)
@@ -161,28 +168,65 @@ def update_cart(update, context):
 
 
 def handle_cart(update, context):
+
     bot = context.bot
     client_id = context.bot_data['client_id']
     client_secret = context.bot_data['client_secret']
-    products = context.bot_data['products']
     elastic_token = get_client_token(client_secret, client_id)
-    cart_id = context.bot_data.get('cart_id')
-    callback_query = update.callback_query
+    cart_id = context.user_data['cart_id']
 
     cart_items = get_cart(elastic_token, cart_id)
 
+    callback_query = update.callback_query
+
     keyboard = [
-        [InlineKeyboardButton(product.get('name'), callback_data=product.get('id')) for product in products],
-        [InlineKeyboardButton('Корзина', callback_data='Корзина')]]
+        [InlineKeyboardButton('В меню',
+                              callback_data='В меню')],
+        [InlineKeyboardButton(f"Убрать {item.get('name')}",
+                              callback_data=item.get('id')) for item in cart_items['data']],
+    ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     total_price = get_cart_total_price(elastic_token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
+
+    if len(callback_query.data) > 20:
+        product_id = callback_query.data
+        remove_product_from_cart(elastic_token, cart_id, product_id)
+
+        cart_items = get_cart(elastic_token, cart_id)
+
+        keyboard = [
+            [InlineKeyboardButton('В меню',
+                                  callback_data='В меню')],
+            [InlineKeyboardButton(f"Убрать {item.get('name')}",
+                                  callback_data=item.get('id')) for item in cart_items['data']],
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        total_price = get_cart_total_price(elastic_token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
+
+        bot.edit_message_text(
+            text=format_cart(cart_items, elastic_token, total_price),
+            message_id=callback_query.message.message_id,
+            chat_id=callback_query.message.chat_id,
+            reply_markup=reply_markup,
+        )
+
+        return BotStates.HANDLE_CART
 
     bot.send_message(
         text=format_cart(cart_items, elastic_token, total_price),
         chat_id=callback_query.message.chat_id,
         reply_markup=reply_markup,
     )
+
+    return BotStates.HANDLE_CART
+
+
+
+
+
+
 
 
 def main():
@@ -223,6 +267,11 @@ def main():
                 CallbackQueryHandler(update_cart, pattern='^[0-9]+$'),
                 CallbackQueryHandler(handle_description),
             ],
+            BotStates.HANDLE_CART: [
+                CallbackQueryHandler(handle_menu, pattern='^В меню$'),
+                CallbackQueryHandler(handle_menu, pattern='^Оплатить$'),
+                CallbackQueryHandler(handle_cart),
+            ]
 
         },
 
