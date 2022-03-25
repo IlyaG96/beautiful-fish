@@ -15,7 +15,8 @@ from elastic_api import (get_client_token,
                          create_cart,
                          get_cart_total_price,
                          remove_product_from_cart,
-                         create_client)
+                         create_customer,
+                         check_customer)
 
 from textwrap import dedent
 
@@ -247,12 +248,14 @@ def add_client_to_cms(update, context):
     elastic_token = get_client_token(client_secret, client_id)
     email = update.message.text
 
-    create_client(elastic_token,
-                        username=update.message.chat_id,
-                        email=email)
+    customer_id = create_customer(elastic_token,
+                                  user_id=update.message.chat_id,
+                                  email=email)['data']['id']
+
+    check_customer(elastic_token, customer_id)
 
     bot.send_message(
-        text='Ваш заказ успешно создан',
+        text=f'Ваш заказ успешно создан, {customer_id}',
         chat_id=update.message.chat_id,
     )
 
