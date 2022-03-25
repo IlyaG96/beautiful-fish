@@ -123,3 +123,24 @@ def get_cart_total_price(elastic_token, cart_id):
     response.raise_for_status()
 
     return response.json()
+
+
+def create_client(elastic_token, username, email):
+
+    headers = {
+        'Authorization': f'Bearer {elastic_token}',
+    }
+
+    json_data = {
+        'data': {
+            'type': 'customer',
+            'name': 'Ron Swanson',
+            'email': 'ron@swanson.com',
+            'password': 'mysecretpassword',
+        },
+    }
+
+    response = requests.post('https://api.moltin.com/v2/customers', headers=headers, json=json_data)
+    response.raise_for_status()
+
+    return response.json()

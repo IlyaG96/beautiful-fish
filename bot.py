@@ -4,7 +4,7 @@ from telegram import ReplyKeyboardRemove
 from telegram.ext import ConversationHandler
 from enum import Enum
 from telegram.ext import Updater
-from telegram.ext import CallbackQueryHandler, CommandHandler
+from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, Filters
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from elastic_api import (get_client_token,
                          fetch_products,
@@ -14,7 +14,8 @@ from elastic_api import (get_client_token,
                          add_product_to_cart,
                          create_cart,
                          get_cart_total_price,
-                         remove_product_from_cart)
+                         remove_product_from_cart,
+                         create_client)
 
 from textwrap import dedent
 
@@ -24,6 +25,7 @@ class BotStates(Enum):
     HANDLE_MENU = 2
     HANDLE_DESCRIPTION = 3
     HANDLE_CART = 4
+    WAITING_EMAIL = 5
 
 
 def format_product_description(product_description):
@@ -168,7 +170,6 @@ def update_cart(update, context):
 
 
 def handle_cart(update, context):
-
     bot = context.bot
     client_id = context.bot_data['client_id']
     client_secret = context.bot_data['client_secret']
@@ -184,6 +185,8 @@ def handle_cart(update, context):
                               callback_data='В меню')],
         [InlineKeyboardButton(f"Убрать {item.get('name')}",
                               callback_data=item.get('id')) for item in cart_items['data']],
+        [InlineKeyboardButton('Оплатить',
+                              callback_data='Оплатить')]
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -200,10 +203,13 @@ def handle_cart(update, context):
                                   callback_data='В меню')],
             [InlineKeyboardButton(f"Убрать {item.get('name')}",
                                   callback_data=item.get('id')) for item in cart_items['data']],
+            [InlineKeyboardButton('Оплатить',
+                                  callback_data='Оплатить')]
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        total_price = get_cart_total_price(elastic_token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
+        total_price = get_cart_total_price(elastic_token, cart_id)['data']['meta']['display_price']['with_tax'][
+            'formatted']
 
         bot.edit_message_text(
             text=format_cart(cart_items, elastic_token, total_price),
@@ -223,10 +229,32 @@ def handle_cart(update, context):
     return BotStates.HANDLE_CART
 
 
+def get_user_email(update, context):
+    bot = context.bot
+    callback_query = update.callback_query
+    bot.send_message(
+        text='Введите, пожалуйста, свой e-mail в формате username@email.com',
+        chat_id=callback_query.message.chat_id,
+    )
+
+    return BotStates.WAITING_EMAIL
 
 
+def add_client_to_cms(update, context):
+    bot = context.bot
+    client_id = context.bot_data['client_id']
+    client_secret = context.bot_data['client_secret']
+    elastic_token = get_client_token(client_secret, client_id)
+    email = update.message.text
 
+    create_client(elastic_token,
+                        username=update.message.chat_id,
+                        email=email)
 
+    bot.send_message(
+        text='Ваш заказ успешно создан',
+        chat_id=update.message.chat_id,
+    )
 
 
 def main():
@@ -269,8 +297,12 @@ def main():
             ],
             BotStates.HANDLE_CART: [
                 CallbackQueryHandler(handle_menu, pattern='^В меню$'),
-                CallbackQueryHandler(handle_menu, pattern='^Оплатить$'),
+                CallbackQueryHandler(get_user_email, pattern='^Оплатить$'),
                 CallbackQueryHandler(handle_cart),
+            ],
+            BotStates.WAITING_EMAIL: [
+                MessageHandler(Filters.regex('^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'), add_client_to_cms),
+                CallbackQueryHandler(get_user_email)
             ]
 
         },
