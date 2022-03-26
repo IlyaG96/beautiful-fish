@@ -2,7 +2,7 @@ import redis
 from environs import Env
 from telegram import ReplyKeyboardRemove
 from telegram.ext import ConversationHandler
-from enum import Enum
+from enum import Enum, auto
 from telegram.ext import Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, Filters
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -22,11 +22,11 @@ from textwrap import dedent
 
 
 class BotStates(Enum):
-    START = 1
-    HANDLE_MENU = 2
-    HANDLE_DESCRIPTION = 3
-    HANDLE_CART = 4
-    WAITING_EMAIL = 5
+    START = auto()
+    HANDLE_MENU = auto()
+    HANDLE_DESCRIPTION = auto()
+    HANDLE_CART = auto()
+    WAITING_EMAIL = auto()
 
 
 def format_product_description(product_description):
