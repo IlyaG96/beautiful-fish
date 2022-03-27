@@ -97,6 +97,7 @@ def handle_menu(update, context):
     access_token = context.user_data['access_token']
 
     products = fetch_products(access_token)
+    context.user_data['products'] = [product.get('id') for product in products]
 
     user_id = update.effective_user.id
     cart_id = redis_base.hget(user_id, 'cart')
@@ -150,7 +151,7 @@ def handle_description(update, context):
         chat_id=callback_query.message.chat_id,
         photo=image_link,
         caption=formatted_product_description,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
     )
 
     bot.delete_message(
@@ -186,11 +187,13 @@ def handle_cart(update, context):
     access_token = context.user_data['access_token']
     cart_id = context.user_data['cart_id']
     callback_query = update.callback_query
-    if len(callback_query.data) > 20:
+    cart_items = get_cart(access_token, cart_id)
+
+    context.user_data['cart_items'] = [item.get('id') for item in cart_items['data']]
+    if callback_query.data in context.user_data.get('cart_items'):
         product_id = callback_query.data
         remove_product_from_cart(access_token, cart_id, product_id)
-
-    cart_items = get_cart(access_token, cart_id)
+        cart_items = get_cart(access_token, cart_id)
 
     keyboard = [
         [InlineKeyboardButton('В меню',
@@ -204,10 +207,13 @@ def handle_cart(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     total_price = get_cart_total_price(access_token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
 
-    bot.edit_message_text(
+    bot.delete_message(
+        chat_id=callback_query.message.chat_id,
+        message_id=callback_query.message.message_id,
+    )
+    bot.send_message(
         text=format_cart(cart_items, total_price),
         chat_id=update.callback_query.message.chat_id,
-        message_id=callback_query.message.message_id,
         reply_markup=reply_markup,
     )
 
