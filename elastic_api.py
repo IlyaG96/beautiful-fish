@@ -40,7 +40,7 @@ def get_image_link(elastic_token, product_image_id):
     return image_link
 
 
-def get_client_token(client_secret, client_id):
+def get_client_auth(client_secret, client_id):
 
     data = {
         f'client_id': {client_id},
@@ -51,7 +51,7 @@ def get_client_token(client_secret, client_id):
     response = requests.post('https://api.moltin.com/oauth/access_token', data=data)
     response.raise_for_status()
 
-    return response.json().get('access_token')
+    return response.json()
 
 
 def add_product_to_cart(elastic_token, cart_id, product_id, quantity):

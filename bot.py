@@ -6,7 +6,7 @@ from enum import Enum, auto
 from telegram.ext import Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, Filters
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from elastic_api import (get_client_token,
+from elastic_api import (get_client_auth,
                          fetch_products,
                          get_product_info,
                          get_image_link,
@@ -19,7 +19,7 @@ from elastic_api import (get_client_token,
                          check_customer)
 
 from textwrap import dedent
-
+import time
 
 class BotStates(Enum):
     START = auto()
@@ -44,7 +44,7 @@ def format_product_description(product_description):
     return formatted_product_description
 
 
-def format_cart(cart_items, elastic_token, total_price):
+def format_cart(cart_items, total_price):
     cart = cart_items['data']
     formatted_cart = ''
     for item in cart:
@@ -69,6 +69,16 @@ def format_cart(cart_items, elastic_token, total_price):
     ''')
 
 
+def renew_token(context):
+    client_id = context.bot_data['client_id']
+    client_secret = context.bot_data['client_secret']
+    elastic_auth = get_client_auth(client_secret, client_id)
+    access_token = elastic_auth.get('access_token')
+    token_expires_in = elastic_auth.get('expires')
+    context.user_data['access_token'] = access_token
+    context.user_data['token_expires_in'] = token_expires_in
+
+
 def cancel(update, context):
     text = 'Пока'
 
@@ -81,18 +91,18 @@ def cancel(update, context):
 
 def handle_menu(update, context):
     bot = context.bot
-    client_id = context.bot_data['client_id']
-    client_secret = context.bot_data['client_secret']
     redis_base = context.bot_data['redis_base']
 
-    elastic_token = get_client_token(client_secret, client_id)
-    products = fetch_products(elastic_token)
+    renew_token(context)
+    access_token = context.user_data['access_token']
+
+    products = fetch_products(access_token)
 
     user_id = update.effective_user.id
     cart_id = redis_base.hget(user_id, 'cart')
 
     if not cart_id:
-        cart_id = create_cart(elastic_token, str(user_id))['data']['id']
+        cart_id = create_cart(access_token, str(user_id))['data']['id']
         redis_base.hset(user_id, 'cart', cart_id)
 
     context.user_data['user_id'] = user_id
@@ -111,20 +121,19 @@ def handle_menu(update, context):
 
 
 def handle_description(update, context):
-    client_id = context.bot_data['client_id']
-    client_secret = context.bot_data['client_secret']
+
     bot = context.bot
+    if context.user_data['token_expires_in'] > int(time.time()):
+        renew_token(context)
 
-    elastic_token = get_client_token(client_secret, client_id)
-    print(elastic_token)
-
+    access_token = context.user_data['access_token']
     callback_query = update.callback_query
     product_id = callback_query.data
     context.user_data['product_id'] = product_id
 
-    product_description = get_product_info(elastic_token, product_id)
+    product_description = get_product_info(access_token, product_id)
     product_image_id = product_description['data']['relationships']['main_image']['data']['id']
-    image_link = get_image_link(elastic_token, product_image_id)
+    image_link = get_image_link(access_token, product_image_id)
     formatted_product_description = format_product_description(product_description)
 
     keyboard = [[
@@ -153,28 +162,31 @@ def handle_description(update, context):
 
 
 def update_cart(update, context):
-    client_id = context.bot_data['client_id']
-    client_secret = context.bot_data['client_secret']
-    elastic_token = get_client_token(client_secret, client_id)
+    if context.user_data['token_expires_in'] > int(time.time()):
+        renew_token(context)
+
+    access_token = context.user_data['access_token']
     cart_id = context.user_data['cart_id']
     product_id = context.user_data['product_id']
 
     callback_query = update.callback_query
     quantity = int(callback_query.data)
 
-    add_product_to_cart(elastic_token, cart_id, product_id, quantity)
+    add_product_to_cart(access_token, cart_id, product_id, quantity)
 
     return BotStates.HANDLE_DESCRIPTION
 
 
 def handle_cart(update, context):
     bot = context.bot
-    client_id = context.bot_data['client_id']
-    client_secret = context.bot_data['client_secret']
-    elastic_token = get_client_token(client_secret, client_id)
+
+    if context.user_data['token_expires_in'] > int(time.time()):
+        renew_token(context)
+
+    access_token = context.user_data['access_token']
     cart_id = context.user_data['cart_id']
 
-    cart_items = get_cart(elastic_token, cart_id)
+    cart_items = get_cart(access_token, cart_id)
 
     callback_query = update.callback_query
 
@@ -188,13 +200,13 @@ def handle_cart(update, context):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    total_price = get_cart_total_price(elastic_token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
+    total_price = get_cart_total_price(access_token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
 
     if len(callback_query.data) > 20:
         product_id = callback_query.data
-        remove_product_from_cart(elastic_token, cart_id, product_id)
+        remove_product_from_cart(access_token, cart_id, product_id)
 
-        cart_items = get_cart(elastic_token, cart_id)
+        cart_items = get_cart(access_token, cart_id)
 
         keyboard = [
             [InlineKeyboardButton('В меню',
@@ -206,11 +218,11 @@ def handle_cart(update, context):
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
-        total_price = get_cart_total_price(elastic_token, cart_id)['data']['meta']['display_price']['with_tax'][
+        total_price = get_cart_total_price(access_token, cart_id)['data']['meta']['display_price']['with_tax'][
             'formatted']
 
         bot.edit_message_text(
-            text=format_cart(cart_items, elastic_token, total_price),
+            text=format_cart(cart_items, total_price),
             message_id=callback_query.message.message_id,
             chat_id=callback_query.message.chat_id,
             reply_markup=reply_markup,
@@ -219,7 +231,7 @@ def handle_cart(update, context):
         return BotStates.HANDLE_CART
 
     bot.send_message(
-        text=format_cart(cart_items, elastic_token, total_price),
+        text=format_cart(cart_items, total_price),
         chat_id=callback_query.message.chat_id,
         reply_markup=reply_markup,
     )
@@ -240,16 +252,18 @@ def get_user_email(update, context):
 
 def add_client_to_cms(update, context):
     bot = context.bot
-    client_id = context.bot_data['client_id']
-    client_secret = context.bot_data['client_secret']
-    elastic_token = get_client_token(client_secret, client_id)
+    if context.user_data['token_expires_in'] > int(time.time()):
+        renew_token(context)
+
+    access_token = context.user_data['access_token']
+
     email = update.message.text
 
-    customer_id = create_customer(elastic_token,
+    customer_id = create_customer(access_token,
                                   user_id=update.message.chat_id,
                                   email=email)['data']['id']
 
-    check_customer(elastic_token, customer_id)
+    check_customer(access_token, customer_id)
 
     bot.send_message(
         text=f'Ваш заказ успешно создан, {customer_id}',
