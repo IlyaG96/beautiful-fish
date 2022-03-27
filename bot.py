@@ -88,7 +88,7 @@ def handle_menu(update, context):
     elastic_token = get_client_token(client_secret, client_id)
     products = fetch_products(elastic_token)
 
-    user_id = update.effective_user.chat_id
+    user_id = update.effective_user.id
     cart_id = redis_base.hget(user_id, 'cart')
 
     if not cart_id:
@@ -116,6 +116,7 @@ def handle_description(update, context):
     bot = context.bot
 
     elastic_token = get_client_token(client_secret, client_id)
+    print(elastic_token)
 
     callback_query = update.callback_query
     product_id = callback_query.data
