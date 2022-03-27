@@ -185,10 +185,12 @@ def handle_cart(update, context):
 
     access_token = context.user_data['access_token']
     cart_id = context.user_data['cart_id']
+    callback_query = update.callback_query
+    if len(callback_query.data) > 20:
+        product_id = callback_query.data
+        remove_product_from_cart(access_token, cart_id, product_id)
 
     cart_items = get_cart(access_token, cart_id)
-
-    callback_query = update.callback_query
 
     keyboard = [
         [InlineKeyboardButton('В меню',
@@ -202,37 +204,10 @@ def handle_cart(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     total_price = get_cart_total_price(access_token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
 
-    if len(callback_query.data) > 20:
-        product_id = callback_query.data
-        remove_product_from_cart(access_token, cart_id, product_id)
-
-        cart_items = get_cart(access_token, cart_id)
-
-        keyboard = [
-            [InlineKeyboardButton('В меню',
-                                  callback_data='В меню')],
-            [InlineKeyboardButton(f"Убрать {item.get('name')}",
-                                  callback_data=item.get('id')) for item in cart_items['data']],
-            [InlineKeyboardButton('Оплатить',
-                                  callback_data='Оплатить')]
-        ]
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        total_price = get_cart_total_price(access_token, cart_id)['data']['meta']['display_price']['with_tax'][
-            'formatted']
-
-        bot.edit_message_text(
-            text=format_cart(cart_items, total_price),
-            message_id=callback_query.message.message_id,
-            chat_id=callback_query.message.chat_id,
-            reply_markup=reply_markup,
-        )
-
-        return BotStates.HANDLE_CART
-
-    bot.send_message(
+    bot.edit_message_text(
         text=format_cart(cart_items, total_price),
-        chat_id=callback_query.message.chat_id,
+        chat_id=update.callback_query.message.chat_id,
+        message_id=callback_query.message.message_id,
         reply_markup=reply_markup,
     )
 
