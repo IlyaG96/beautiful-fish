@@ -21,6 +21,7 @@ from elastic_api import (get_client_auth,
 from textwrap import dedent
 import time
 
+
 class BotStates(Enum):
     START = auto()
     HANDLE_MENU = auto()
@@ -122,7 +123,6 @@ def handle_menu(update, context):
 
 
 def handle_description(update, context):
-
     bot = context.bot
     if context.user_data['token_expires_in'] > int(time.time()):
         renew_token(context)
@@ -207,6 +207,8 @@ def handle_cart(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     total_price = get_cart_total_price(access_token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
 
+    context.user_data['total_price'] = total_price
+
     bot.delete_message(
         chat_id=callback_query.message.chat_id,
         message_id=callback_query.message.message_id,
@@ -223,9 +225,25 @@ def handle_cart(update, context):
 def get_user_email(update, context):
     bot = context.bot
     callback_query = update.callback_query
-    bot.send_message(
+
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton('Назад',
+                                      callback_data='Назад')]])
+
+    if context.user_data['total_price'] == '0':
+
+        bot.edit_message_text(
+            text='Похоже, что в корзине нет товаров.',
+            chat_id=callback_query.message.chat_id,
+            message_id=callback_query.message.message_id,
+            reply_markup=keyboard,
+        )
+        return BotStates.HANDLE_MENU
+
+    bot.edit_message_text(
         text='Введите, пожалуйста, свой e-mail в формате username@email.com',
         chat_id=callback_query.message.chat_id,
+        message_id=callback_query.message.message_id,
+        reply_markup=keyboard,
     )
 
     return BotStates.WAITING_EMAIL
@@ -247,7 +265,7 @@ def add_client_to_cms(update, context):
     check_customer(access_token, customer_id)
 
     bot.send_message(
-        text=f'Ваш заказ успешно создан, {customer_id}',
+        text=f'Ваш заказ успешно создан, номер заказа: {customer_id}',
         chat_id=update.message.chat_id,
     )
 
@@ -297,6 +315,7 @@ def main():
             ],
             BotStates.WAITING_EMAIL: [
                 MessageHandler(Filters.regex('^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'), add_client_to_cms),
+                CallbackQueryHandler(handle_cart, pattern='^Назад$'),
                 CallbackQueryHandler(get_user_email)
             ]
 
