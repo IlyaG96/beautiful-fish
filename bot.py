@@ -98,7 +98,6 @@ def handle_menu(update, context):
     access_token = context.user_data['access_token']
 
     products = fetch_products(access_token)
-    context.user_data['products'] = [product.get('id') for product in products]
 
     user_id = update.effective_user.id
     cart_id = redis_base.hget(user_id, 'cart')
