@@ -22,6 +22,11 @@ python3 -m venv env
 source env/bin/activate
 pip install -r requirements.txt
 ```
+Или запустите приложение, используя Docker:
+```shell
+docker build -t beautiful-fish .
+docker run --rm -v 'pwd' -d beautiful-fish
+```
 
 ## Настройка перед использованием
 
