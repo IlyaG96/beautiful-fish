@@ -1,10 +1,8 @@
 import redis
+from enum import Enum, auto
 from environs import Env
 from telegram import ReplyKeyboardRemove
-from telegram.ext import ConversationHandler
-from enum import Enum, auto
-from telegram.ext import Updater
-from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, Filters
+from telegram.ext import Updater, CallbackQueryHandler, CommandHandler, MessageHandler, Filters, ConversationHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from elastic_api import (get_client_auth,
                          fetch_products,
@@ -29,15 +27,20 @@ class BotStates(Enum):
     WAITING_EMAIL = auto()
 
 
-def renew_token(context):
-    client_secret = context.bot_data['client_secret']
-    client_id = context.bot_data['client_id']
+def renew_token(bot_context):
+    """
+    :param bot_context: this is a context object passed to the callback called by :class:`telegram.ext.Handler`
+    or by the :class:`telegram.ext.Dispatcher`
+    :return: None
+    """
+    client_secret = bot_context.bot_data['client_secret']
+    client_id = bot_context.bot_data['client_id']
     elastic_auth = get_client_auth(client_secret, client_id)
     access_token = elastic_auth.get('access_token')
     token_expires_in = elastic_auth.get('expires_in')
-    context.bot_data['access_token'] = access_token
-    context.bot_data['token_expires_in'] = token_expires_in
-    context.job_queue.run_once(renew_token, when=context.bot_data['token_expires_in'])
+    bot_context.bot_data['access_token'] = access_token
+    bot_context.bot_data['token_expires_in'] = token_expires_in
+    bot_context.job_queue.run_once(renew_token, when=bot_context.bot_data['token_expires_in'])
 
 
 def cancel(update, context):
