@@ -157,3 +157,17 @@ def check_customer(elastic_token, client_id):
 
     return response.json()
 
+
+def renew_token(bot_context):
+    """
+    :param bot_context: this is a context object passed to the callback called by :class:`telegram.ext.Handler`
+    or by the :class:`telegram.ext.Dispatcher`
+    :return: None
+    """
+    client_secret = bot_context.bot_data['client_secret']
+    client_id = bot_context.bot_data['client_id']
+    elastic_auth = get_client_auth(client_secret, client_id)
+    bot_context.bot_data['access_token'] = elastic_auth.get('access_token')
+    bot_context.bot_data['token_expires_in'] = elastic_auth.get('expires_in')
+    bot_context.job_queue.run_once(renew_token, when=bot_context.bot_data['token_expires_in'])
+

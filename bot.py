@@ -4,8 +4,7 @@ from environs import Env
 from telegram import ReplyKeyboardRemove
 from telegram.ext import Updater, CallbackQueryHandler, CommandHandler, MessageHandler, Filters, ConversationHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from elastic_api import (get_client_auth,
-                         fetch_products,
+from elastic_api import (fetch_products,
                          get_product_info,
                          get_image_link,
                          get_cart,
@@ -14,7 +13,8 @@ from elastic_api import (get_client_auth,
                          get_cart_total_price,
                          remove_product_from_cart,
                          create_customer,
-                         check_customer)
+                         check_customer,
+                         renew_token)
 
 from bot_tools import format_cart, format_product_description
 
@@ -25,22 +25,6 @@ class BotStates(Enum):
     HANDLE_DESCRIPTION = auto()
     HANDLE_CART = auto()
     WAITING_EMAIL = auto()
-
-
-def renew_token(bot_context):
-    """
-    :param bot_context: this is a context object passed to the callback called by :class:`telegram.ext.Handler`
-    or by the :class:`telegram.ext.Dispatcher`
-    :return: None
-    """
-    client_secret = bot_context.bot_data['client_secret']
-    client_id = bot_context.bot_data['client_id']
-    elastic_auth = get_client_auth(client_secret, client_id)
-    access_token = elastic_auth.get('access_token')
-    token_expires_in = elastic_auth.get('expires_in')
-    bot_context.bot_data['access_token'] = access_token
-    bot_context.bot_data['token_expires_in'] = token_expires_in
-    bot_context.job_queue.run_once(renew_token, when=bot_context.bot_data['token_expires_in'])
 
 
 def cancel(update, context):
