@@ -170,4 +170,3 @@ def renew_token(bot_context):
     bot_context.bot_data['access_token'] = elastic_auth.get('access_token')
     bot_context.bot_data['token_expires_in'] = elastic_auth.get('expires_in')
     bot_context.job_queue.run_once(renew_token, when=bot_context.bot_data['token_expires_in'])
-
