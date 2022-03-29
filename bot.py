@@ -1,5 +1,3 @@
-import random
-
 import redis
 from environs import Env
 from telegram import ReplyKeyboardRemove
